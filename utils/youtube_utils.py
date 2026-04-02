@@ -1,91 +1,101 @@
-from typing import Optional, List
+from typing import List
 from youtube_transcript_api import YouTubeTranscriptApi
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
 
 
 class YouTubeUtils:
     def __init__(self):
-        # Lightweight embedding model (free)
+        # ✅ Embedding model
         self.embeddings = HuggingFaceEmbeddings(
             model_name="all-MiniLM-L6-v2"
         )
 
-        # Lightweight text generation model
-        self.generator = pipeline(
-        "text-generation",
-        model="distilgpt2"
-      )
+        # ✅ LOAD FLAN-T5 MANUALLY (NO PIPELINE)
+        self.tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
+        self.model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
 
     # -------------------------------
-    # 1. FETCH TRANSCRIPT (ROBUST)
+    # FETCH TRANSCRIPT
     # -------------------------------
     def get_transcript(self, video_id: str):
         try:
-            from youtube_transcript_api import YouTubeTranscriptApi
-
             transcript_list = YouTubeTranscriptApi().list(video_id)
 
-            # Print available transcripts (for debugging)
-            print("Available transcripts:", list(transcript_list))
-
-            # Try English
             try:
                 transcript = transcript_list.find_transcript(['en'])
             except:
                 transcript = list(transcript_list)[0]
 
             data = transcript.fetch()
-
             return " ".join([item.text for item in data])
 
         except Exception as e:
-            print("FULL ERROR:", str(e))
+            print("ERROR:", str(e))
             return None
+
     # -------------------------------
-    # 2. GENERATE EMBEDDINGS
+    # EMBEDDINGS
     # -------------------------------
     def generate_embeddings(self, text: str) -> List[float]:
         return self.embeddings.embed_query(text)
 
     # -------------------------------
-    # 3. GENERATE SUMMARY
+    # 🔥 SUMMARY (ENGLISH ONLY)
     # -------------------------------
     def generate_summary(self, text: str) -> str:
-        prompt = f"Summarize:\n{text[:500]}"  # reduce input size
+        try:
+            prompt = f"""
+Summarize the following content in simple English only:
 
-        result = self.generator(
-            prompt,
-            max_new_tokens=100,   # ✅ IMPORTANT FIX
-            do_sample=True,
-            temperature=0.7
-        )[0]["generated_text"]
+{text[:500]}
+"""
 
-        return result.replace(prompt, "").strip()
+            inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True)
+
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=120
+            )
+
+            summary = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return summary.strip()
+
+        except Exception as e:
+            print("ERROR in summary:", e)
+            return "Error generating summary."
 
     # -------------------------------
-    # 4. QUESTION ANSWERING (RAG STYLE)
+    # 🔥 ANSWER (RAG)
     # -------------------------------
     def generate_answer(self, question: str, context: str) -> str:
-        prompt = f"""
-    Context: {context[:500]}
+        try:
+            prompt = f"""
+Answer the question using ONLY the context below.
+Respond in English only.
 
-    Question: {question}
+Context:
+{context[:500]}
 
-    Answer:
-    """
+Question:
+{question}
+"""
 
-        result = self.generator(
-            prompt,
-            max_new_tokens=80,   # ✅ FIX
-            do_sample=True,
-            temperature=0.5
-        )[0]["generated_text"]
+            inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True)
 
-        return result.replace(prompt, "").strip()
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=120
+            )
 
-        # Basic hallucination control
-        if len(answer) < 5:
-            return "I don't have information about this in the video."
+            answer = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-        return answer
+            if len(answer.strip()) < 5:
+                return "I couldn't find a clear answer in the video."
+
+            return answer.strip()
+
+        except Exception as e:
+            print("ERROR in answer:", e)
+            return "Error generating answer."
