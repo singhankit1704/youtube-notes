@@ -16,24 +16,28 @@ class YouTubeUtils:
         self.tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
         self.model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
 
+        # ✅ YouTube Transcript API instance
+        self.ytt_api = YouTubeTranscriptApi()
+
     # -------------------------------
     # FETCH TRANSCRIPT
     # -------------------------------
     def get_transcript(self, video_id: str):
         try:
-            transcript_list = YouTubeTranscriptApi().list(video_id)
-
-            try:
-                transcript = transcript_list.find_transcript(['en'])
-            except:
-                transcript = list(transcript_list)[0]
-
-            data = transcript.fetch()
-            return " ".join([item.text for item in data])
+            # ✅ NEW API: Use fetch() directly with language preference
+            fetched_transcript = self.ytt_api.fetch(video_id, languages=['en'])
+            return " ".join([snippet.text for snippet in fetched_transcript])
 
         except Exception as e:
-            print("ERROR:", str(e))
-            return None
+            print(f"English transcript not found, trying any available language...")
+            try:
+                # Fallback: fetch without language filter (defaults to English,
+                # but may return auto-generated)
+                fetched_transcript = self.ytt_api.fetch(video_id)
+                return " ".join([snippet.text for snippet in fetched_transcript])
+            except Exception as e2:
+                print("ERROR fetching transcript:", str(e2))
+                return None
 
     # -------------------------------
     # EMBEDDINGS

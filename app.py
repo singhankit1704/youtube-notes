@@ -16,11 +16,6 @@ def load_notes_system(_database):
     return YouTubeNotes(_database)
 
 
-@st.cache_data
-def process_video(_notes_system, video_id):
-    return _notes_system.add_video(video_id)
-
-
 # -------------------------------
 # MAIN APP
 # -------------------------------
@@ -62,7 +57,7 @@ def main():
             else:
                 with st.spinner("Processing video..."):
                     try:
-                        result = process_video(notes_system, video_id)
+                        result = notes_system.add_video(video_id)
 
                         if not result:
                             st.error("❌ No transcript available.")
@@ -73,8 +68,18 @@ def main():
                             st.subheader("📄 Summary")
                             st.write(result["summary"])
 
+                    except ValueError as ve:
+                        st.error(f"❌ {str(ve)}")
                     except Exception as e:
-                        st.error("❌ Error processing video")
+                        error_msg = str(e)
+                        if "RequestBlocked" in error_msg or "IpBlocked" in error_msg:
+                            st.error(
+                                "❌ YouTube is blocking requests from this server's IP. "
+                                "This is a known limitation when running on cloud platforms. "
+                                "Try running locally instead."
+                            )
+                        else:
+                            st.error(f"❌ Error processing video: {error_msg}")
                         print(e)
 
         # Clear chat button
