@@ -49,38 +49,83 @@ def main():
     with st.sidebar:
         st.header("📺 Process Video")
 
-        video_id = st.text_input("Enter YouTube Video ID")
+        # Two input modes: YouTube ID or Manual Transcript
+        input_mode = st.radio(
+            "Input Method",
+            ["🔗 YouTube Video ID", "📋 Paste Transcript"],
+            help="If YouTube blocks the transcript, paste it manually instead."
+        )
 
-        if st.button("🚀 Process Video"):
-            if not video_id:
-                st.warning("Please enter a video ID")
-            else:
-                with st.spinner("Processing video..."):
-                    try:
-                        result = notes_system.add_video(video_id)
+        if input_mode == "🔗 YouTube Video ID":
+            video_id = st.text_input("Enter YouTube Video ID")
 
-                        if not result:
-                            st.error("❌ No transcript available.")
-                        else:
-                            st.success("✅ Video processed!")
+            if st.button("🚀 Process Video"):
+                if not video_id:
+                    st.warning("Please enter a video ID")
+                else:
+                    with st.spinner("Processing video..."):
+                        try:
+                            result = notes_system.add_video(video_id)
+
+                            if not result:
+                                st.error("❌ No transcript available.")
+                            else:
+                                st.success("✅ Video processed!")
+                                st.session_state.video_processed = True
+
+                                st.subheader("📄 Summary")
+                                st.write(result["summary"])
+
+                        except ValueError as ve:
+                            st.error(f"❌ {str(ve)}")
+                        except Exception as e:
+                            error_msg = str(e)
+                            if "RequestBlocked" in error_msg or "IpBlocked" in error_msg:
+                                st.error(
+                                    "❌ YouTube is blocking requests from this server's IP. "
+                                    "This is a known limitation on cloud platforms. "
+                                    "**Switch to 'Paste Transcript' mode** to paste the transcript manually."
+                                )
+                            else:
+                                st.error(f"❌ Error processing video: {error_msg}")
+                            print(e)
+
+        else:  # Paste Transcript mode
+            st.markdown(
+                "💡 **Tip**: Copy the transcript from YouTube → "
+                "click `⋯` below the video → `Show transcript` → copy the text."
+            )
+            transcript_text = st.text_area(
+                "Paste transcript here",
+                height=200,
+                placeholder="Paste the video transcript text here..."
+            )
+            source_label = st.text_input(
+                "Label (optional)",
+                value="manual_video",
+                help="A short name to identify this transcript"
+            )
+
+            if st.button("🚀 Process Transcript"):
+                if not transcript_text or len(transcript_text.strip()) < 10:
+                    st.warning("Please paste a transcript (at least 10 characters)")
+                else:
+                    with st.spinner("Processing transcript..."):
+                        try:
+                            result = notes_system.add_manual_transcript(
+                                transcript_text, source_label
+                            )
+                            st.success("✅ Transcript processed!")
                             st.session_state.video_processed = True
 
                             st.subheader("📄 Summary")
                             st.write(result["summary"])
 
-                    except ValueError as ve:
-                        st.error(f"❌ {str(ve)}")
-                    except Exception as e:
-                        error_msg = str(e)
-                        if "RequestBlocked" in error_msg or "IpBlocked" in error_msg:
-                            st.error(
-                                "❌ YouTube is blocking requests from this server's IP. "
-                                "This is a known limitation when running on cloud platforms. "
-                                "Try running locally instead."
-                            )
-                        else:
-                            st.error(f"❌ Error processing video: {error_msg}")
-                        print(e)
+                        except Exception as e:
+                            st.error(f"❌ Error: {str(e)}")
+                            print(e)
+
+        st.markdown("---")
 
         # Clear chat button
         if st.button("🗑 Clear Chat"):

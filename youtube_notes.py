@@ -61,6 +61,43 @@ class YouTubeNotes:
         }
 
     # -------------------------------
+    # ADD MANUAL TRANSCRIPT (FALLBACK)
+    # -------------------------------
+    def add_manual_transcript(self, transcript: str, source_name: str = "manual") -> Dict[str, Any]:
+        """Process a manually pasted transcript (fallback when YouTube blocks IP)."""
+        if not transcript or len(transcript.strip()) < 10:
+            raise ValueError("Transcript is too short or empty.")
+
+        # ✅ Chunk transcript
+        chunks = self.chunk_text(transcript)
+
+        # ✅ Generate summary once
+        summary = self.utils.generate_summary(transcript)
+
+        # ✅ Store multiple embeddings
+        for i, chunk in enumerate(chunks):
+            embedding = self.utils.generate_embeddings(chunk)
+
+            metadata = {
+                "video_id": source_name,
+                "chunk_id": i
+            }
+
+            self.database.add_embedding(
+                id=f"{source_name}_{i}",
+                embedding=embedding,
+                document=chunk,
+                metadata=metadata
+            )
+
+        return {
+            "video_id": source_name,
+            "summary": summary,
+            "chunks": len(chunks),
+            "status": "success"
+        }
+
+    # -------------------------------
     # ASK QUESTION
     # -------------------------------
     def ask_question(self, question: str) -> Dict[str, Any]:
