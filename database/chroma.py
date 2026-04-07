@@ -87,5 +87,5 @@ class ChromaDB(DatabaseInterface):
     def count(self) -> int:
         try:
             return self.collection.count()
-        except:
+        except Exception:
             return 0
