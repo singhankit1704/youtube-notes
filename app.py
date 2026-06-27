@@ -43,6 +43,12 @@ def main():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
 
+    if "summary" not in st.session_state:
+        st.session_state.summary = ""
+
+    if "video_id" not in st.session_state:
+        st.session_state.video_id = ""
+
     # -------------------------------
     # SIDEBAR
     # -------------------------------
@@ -72,22 +78,20 @@ def main():
                             else:
                                 st.success("✅ Video processed!")
                                 st.session_state.video_processed = True
+                                st.session_state.summary = result["summary"]
+                                st.session_state.video_id = result["video_id"]
+                                st.session_state.chat_history = []  # Clear chat for new video
 
-                                st.subheader("📄 Summary")
-                                st.write(result["summary"])
-
-                        except ValueError as ve:
-                            st.error(f"❌ {str(ve)}")
                         except Exception as e:
                             error_msg = str(e)
-                            if "RequestBlocked" in error_msg or "IpBlocked" in error_msg:
+                            if "RequestBlocked" in error_msg or "IpBlocked" in error_msg or "TooManyRequests" in error_msg:
                                 st.error(
                                     "❌ YouTube is blocking requests from this server's IP. "
                                     "This is a known limitation on cloud platforms. "
                                     "**Switch to 'Paste Transcript' mode** to paste the transcript manually."
                                 )
                             else:
-                                st.error(f"❌ Error processing video: {error_msg}")
+                                st.error(f"❌ {error_msg}")
                             print(e)
 
         else:  # Paste Transcript mode
@@ -117,13 +121,20 @@ def main():
                             )
                             st.success("✅ Transcript processed!")
                             st.session_state.video_processed = True
-
-                            st.subheader("📄 Summary")
-                            st.write(result["summary"])
+                            st.session_state.summary = result["summary"]
+                            st.session_state.video_id = source_label
+                            st.session_state.chat_history = []  # Clear chat for new transcript
 
                         except Exception as e:
                             st.error(f"❌ Error: {str(e)}")
                             print(e)
+
+        if st.session_state.video_processed:
+            st.markdown("---")
+            st.markdown(f"**Current Video**: `{st.session_state.video_id}`")
+            if st.session_state.summary:
+                st.subheader("📄 Summary")
+                st.write(st.session_state.summary)
 
         st.markdown("---")
 
@@ -162,7 +173,10 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
-                    result = notes_system.ask_question(user_input)
+                    result = notes_system.ask_question(
+                        user_input,
+                        video_id=st.session_state.video_id
+                    )
                     answer = result["answer"]
 
                     st.markdown(answer)

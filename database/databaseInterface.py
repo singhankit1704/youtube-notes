@@ -7,7 +7,7 @@ class DatabaseInterface(ABC):
         pass
     
     @abstractmethod
-    def find_similar_embeddings(self, query_embedding: List[float], n_results: int = 5) -> Dict[str, Any]:
+    def find_similar_embeddings(self, query_embedding: List[float], n_results: int = 5, video_id: str = None) -> Dict[str, Any]:
         pass
     
     @abstractmethod

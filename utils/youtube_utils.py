@@ -19,10 +19,22 @@ class YouTubeUtils:
         # ✅ YouTube Transcript API instance
         self.ytt_api = YouTubeTranscriptApi()
 
+    @staticmethod
+    def extract_video_id(url_or_id: str) -> str:
+        import re
+        url_or_id = url_or_id.strip()
+        if len(url_or_id) == 11 and re.match(r'^[A-Za-z0-9_-]{11}$', url_or_id):
+            return url_or_id
+        match = re.search(r'(?:v=|\/v\/|embed\/|youtu\.be\/|\/shorts\/|^)([A-Za-z0-9_-]{11})', url_or_id)
+        if match:
+            return match.group(1)
+        return url_or_id
+
     # -------------------------------
     # FETCH TRANSCRIPT
     # -------------------------------
     def get_transcript(self, video_id: str):
+        video_id = self.extract_video_id(video_id)
         try:
             # ✅ NEW API: Use fetch() directly with language preference
             fetched_transcript = self.ytt_api.fetch(video_id, languages=['en'])
@@ -37,7 +49,7 @@ class YouTubeUtils:
                 return " ".join([snippet.text for snippet in fetched_transcript])
             except Exception as e2:
                 print("ERROR fetching transcript:", str(e2))
-                return None
+                raise ValueError(f"Failed to fetch transcript for video {video_id}: {str(e2)}")
 
     # -------------------------------
     # EMBEDDINGS
@@ -80,7 +92,7 @@ Answer the question using ONLY the context below.
 Respond in English only.
 
 Context:
-{context[:500]}
+{context}
 
 Question:
 {question}

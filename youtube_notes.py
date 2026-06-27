@@ -26,6 +26,7 @@ class YouTubeNotes:
     # ADD VIDEO
     # -------------------------------
     def add_video(self, video_id: str) -> Dict[str, Any]:
+        video_id = self.utils.extract_video_id(video_id)
         transcript = self.utils.get_transcript(video_id)
 
         if not transcript:
@@ -100,11 +101,13 @@ class YouTubeNotes:
     # -------------------------------
     # ASK QUESTION
     # -------------------------------
-    def ask_question(self, question: str) -> Dict[str, Any]:
+    def ask_question(self, question: str, video_id: str = None) -> Dict[str, Any]:
         try:
             query_embedding = self.utils.generate_embeddings(question)
 
-            results = self.database.find_similar_embeddings(query_embedding)
+            results = self.database.find_similar_embeddings(
+                query_embedding, video_id=video_id
+            )
 
             # 🔍 DEBUG
             print("Results:", results)

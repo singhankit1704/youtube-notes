@@ -49,14 +49,19 @@ class ChromaDB(DatabaseInterface):
     def find_similar_embeddings(
         self,
         query_embedding: List[float],
-        n_results: int = 5
+        n_results: int = 5,
+        video_id: str = None
     ) -> Dict[str, Any]:
 
         try:
-            results = self.collection.query(
-                query_embeddings=[query_embedding],
-                n_results=n_results
-            )
+            query_kwargs = {
+                "query_embeddings": [query_embedding],
+                "n_results": n_results
+            }
+            if video_id:
+                query_kwargs["where"] = {"video_id": video_id}
+
+            results = self.collection.query(**query_kwargs)
 
             # 🔍 DEBUG (VERY IMPORTANT)
             print("Chroma Results:", results)
